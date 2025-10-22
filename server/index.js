@@ -7,6 +7,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import NodeCache from 'node-cache';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
@@ -21,6 +23,16 @@ const port = process.env.PORT || 5000;
 const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URL || 'mongodb+srv://dawatson_pharmacy:Mrwasi%2F123456@cluster0.b89db9l.mongodb.net/sales_dashboard?retryWrites=true&w=majority&appName=Cluster0';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize cache
+const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
+
+// Rate limiting for authentication routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: 'Too many authentication attempts, please try again later.'
+});
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -135,6 +147,23 @@ const Settings = mongoose.model('Settings', SettingsSchema);
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'pharmacy_sales_secret_key';
 
+// Validation middleware
+const validateBranch = (req, res, next) => {
+  const { name } = req.body;
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Branch name is required' });
+  }
+  next();
+};
+
+const validateCategory = (req, res, next) => {
+  const { name } = req.body;
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+  next();
+};
+
 // Authentication Middleware - Enhanced with debugging
 const authenticate = async (req, res, next) => {
   try {
@@ -225,6 +254,23 @@ app.get('/api/debug/user', authenticate, (req, res) => {
     permissions: req.user.groupId.permissions,
     isAdmin: req.user.groupId.permissions.includes('admin')
   });
+});
+
+// Get available permissions
+app.get('/api/permissions', authenticate, isAdmin, (req, res) => {
+  const permissions = [
+    { key: 'admin', name: 'Admin', description: 'Full system access' },
+    { key: 'dashboard', name: 'Dashboard', description: 'View dashboard' },
+    { key: 'categories', name: 'Categories', description: 'Manage categories' },
+    { key: 'sales', name: 'Sales', description: 'Manage sales' },
+    { key: 'reports', name: 'Reports', description: 'View reports' },
+    { key: 'branches', name: 'Branches', description: 'Manage branches' },
+    { key: 'groups', name: 'Groups', description: 'Manage user groups' },
+    { key: 'users', name: 'Users', description: 'Manage users' },
+    { key: 'settings', name: 'Settings', description: 'Manage system settings' }
+  ];
+  
+  res.json(permissions);
 });
 
 // Promote user to admin endpoint
@@ -332,7 +378,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Authentication Routes - Enhanced
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     
@@ -563,13 +609,21 @@ app.put('/api/settings', authenticate, isAdmin, async (req, res) => {
 app.get('/api/branches', authenticate, async (req, res) => {
   console.log('📋 GET /api/branches - Fetching all branches');
   try {
-    // If user is not admin, only return assigned branches
-    const filter = {};
-    if (!req.user.groupId.permissions.includes('admin')) {
-      filter._id = { $in: req.user.branches };
+    // Check cache first
+    const cacheKey = 'branches';
+    let branches = cache.get(cacheKey);
+    
+    if (!branches) {
+      // If user is not admin, only return assigned branches
+      const filter = {};
+      if (!req.user.groupId.permissions.includes('admin')) {
+        filter._id = { $in: req.user.branches };
+      }
+      
+      branches = await Branch.find(filter).sort({ createdAt: -1 });
+      cache.set(cacheKey, branches);
     }
     
-    const branches = await Branch.find(filter).sort({ createdAt: -1 });
     console.log(`✅ Found ${branches.length} branches`);
     res.json(branches);
   } catch (error) {
@@ -578,7 +632,7 @@ app.get('/api/branches', authenticate, async (req, res) => {
   }
 });
 
-app.post('/api/branches', authenticate, isAdmin, async (req, res) => {
+app.post('/api/branches', authenticate, isAdmin, validateBranch, async (req, res) => {
   console.log('➕ POST /api/branches - Creating new branch:', req.body);
   try {
     const name = (req.body.name || '').trim();
@@ -587,6 +641,10 @@ app.post('/api/branches', authenticate, isAdmin, async (req, res) => {
     const exists = await Branch.findOne({ name: { $regex: `^${name}$`, $options: 'i' } });
     if (exists) return res.status(409).json({ error: 'Branch with this name already exists' });
     const branch = await Branch.create({ ...req.body, name });
+    
+    // Clear cache
+    cache.del('branches');
+    
     console.log('✅ Branch created successfully:', branch._id);
     res.status(201).json(branch);
   } catch (error) {
@@ -595,40 +653,39 @@ app.post('/api/branches', authenticate, isAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/branches/:id', authenticate, isAdmin, async (req, res) => {
+app.put('/api/branches/:id', authenticate, isAdmin, validateBranch, async (req, res) => {
   console.log('✏️ PUT /api/branches/:id - Updating branch', req.params.id, req.body);
   try {
     const id = req.params.id;
+    
+    // Check if ID is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('❌ Invalid branch ID:', id);
+      return res.status(400).json({ error: 'Invalid branch ID' });
+    }
+    
+    // Check if branch exists
+    const existingBranch = await Branch.findById(id);
+    if (!existingBranch) {
+      console.log('❌ Branch not found:', id);
+      return res.status(404).json({ error: 'Branch not found' });
+    }
+    
     const payload = { ...req.body };
 
     // Normalize name if provided
     if (payload.name !== undefined && payload.name !== null) {
       payload.name = String(payload.name).trim();
-
-      // Fetch current branch to compare names
-      const current = await Branch.findById(id);
-      if (!current) {
-        console.log('❌ Branch not found for update:', id);
-        return res.status(404).json({ error: 'Branch not found' });
-      }
-
-      // Simple case-insensitive comparison
-      const currentName = String(current.name || '').toLowerCase().trim();
-      const newName = payload.name.toLowerCase().trim();
-      const nameChanged = currentName !== newName;
-
-      console.log('🔍 Name comparison:', { currentName, newName, nameChanged });
-
-      // Only enforce uniqueness if the name is actually changing
-      if (nameChanged) {
-        const exists = await Branch.findOne({
-          _id: { $ne: id },
-          name: { $regex: `^${payload.name}$`, $options: 'i' }
-        });
-        if (exists) {
-          console.log('❌ Duplicate name found:', payload.name);
-          return res.status(409).json({ error: 'Branch with this name already exists' });
-        }
+      
+      // Check for duplicate name (excluding current branch)
+      const duplicateBranch = await Branch.findOne({
+        _id: { $ne: id },
+        name: { $regex: `^${payload.name}$`, $options: 'i' }
+      });
+      
+      if (duplicateBranch) {
+        console.log('❌ Duplicate branch name:', payload.name);
+        return res.status(409).json({ error: 'Branch with this name already exists' });
       }
     }
     
@@ -637,6 +694,9 @@ app.put('/api/branches/:id', authenticate, isAdmin, async (req, res) => {
       console.log('❌ Branch not found after update attempt:', id);
       return res.status(404).json({ error: 'Branch not found' });
     }
+    
+    // Clear cache
+    cache.del('branches');
     
     console.log('✅ Branch updated successfully:', updated._id);
     res.json(updated);
@@ -659,6 +719,10 @@ app.delete('/api/branches/:id', authenticate, isAdmin, async (req, res) => {
       { branches: req.params.id },
       { $pull: { branches: req.params.id } }
     );
+    
+    // Clear cache
+    cache.del('branches');
+    
     res.json({ ok: true });
   } catch (error) {
     console.error('❌ Error deleting branch:', error.message);
@@ -670,7 +734,15 @@ app.delete('/api/branches/:id', authenticate, isAdmin, async (req, res) => {
 app.get('/api/categories', authenticate, async (req, res) => {
   console.log('🏷️ GET /api/categories - Fetching all categories');
   try {
-    const categories = await Category.find().sort({ createdAt: -1 });
+    // Check cache first
+    const cacheKey = 'categories';
+    let categories = cache.get(cacheKey);
+    
+    if (!categories) {
+      categories = await Category.find().sort({ createdAt: -1 });
+      cache.set(cacheKey, categories);
+    }
+    
     console.log(`✅ Found ${categories.length} categories`);
     res.json(categories);
   } catch (error) {
@@ -679,10 +751,14 @@ app.get('/api/categories', authenticate, async (req, res) => {
   }
 });
 
-app.post('/api/categories', authenticate, isAdmin, async (req, res) => {
+app.post('/api/categories', authenticate, isAdmin, validateCategory, async (req, res) => {
   console.log('➕ POST /api/categories - Creating new category:', req.body);
   try {
     const category = await Category.create(req.body);
+    
+    // Clear cache
+    cache.del('categories');
+    
     console.log('✅ Category created successfully:', category._id);
     res.status(201).json(category);
   } catch (error) {
@@ -691,12 +767,52 @@ app.post('/api/categories', authenticate, isAdmin, async (req, res) => {
   }
 });
 
-app.put('/api/categories/:id', authenticate, isAdmin, async (req, res) => {
+app.put('/api/categories/:id', authenticate, isAdmin, validateCategory, async (req, res) => {
+  console.log('✏️ PUT /api/categories/:id - Updating category', req.params.id, req.body);
   try {
-    const updated = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updated) {
+    const id = req.params.id;
+    
+    // Check if ID is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('❌ Invalid category ID:', id);
+      return res.status(400).json({ error: 'Invalid category ID' });
+    }
+    
+    // Check if category exists
+    const existingCategory = await Category.findById(id);
+    if (!existingCategory) {
+      console.log('❌ Category not found:', id);
       return res.status(404).json({ error: 'Category not found' });
     }
+    
+    const payload = { ...req.body };
+    
+    // Normalize name if provided
+    if (payload.name !== undefined && payload.name !== null) {
+      payload.name = String(payload.name).trim();
+      
+      // Check for duplicate name (excluding current category)
+      const duplicateCategory = await Category.findOne({
+        _id: { $ne: id },
+        name: { $regex: `^${payload.name}$`, $options: 'i' }
+      });
+      
+      if (duplicateCategory) {
+        console.log('❌ Duplicate category name:', payload.name);
+        return res.status(409).json({ error: 'Category with this name already exists' });
+      }
+    }
+    
+    const updated = await Category.findByIdAndUpdate(id, payload, { new: true });
+    if (!updated) {
+      console.log('❌ Category not found after update attempt:', id);
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    
+    // Clear cache
+    cache.del('categories');
+    
+    console.log('✅ Category updated successfully:', updated._id);
     res.json(updated);
   } catch (error) {
     console.error('❌ Error updating category:', error.message);
@@ -710,6 +826,10 @@ app.delete('/api/categories/:id', authenticate, isAdmin, async (req, res) => {
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
+    
+    // Clear cache
+    cache.del('categories');
+    
     res.json({ ok: true });
   } catch (error) {
     console.error('❌ Error deleting category:', error.message);
@@ -1102,8 +1222,12 @@ app.post('/api/admin/delete', async (req, res) => {
         { branches: id },
         { $pull: { branches: id } }
       );
+      // Clear cache
+      cache.del('branches');
     } else if (resource === 'categories') {
       deleted = await Category.findByIdAndDelete(id);
+      // Clear cache
+      cache.del('categories');
     } else if (resource === 'groups') {
       deleted = await Group.findByIdAndDelete(id);
       await User.updateMany(
@@ -1154,8 +1278,12 @@ app.post('/api/admin/update', async (req, res) => {
         .populate('categoryId', 'name');
     } else if (resource === 'branches') {
       updated = await Branch.findByIdAndUpdate(id, payload, { new: true });
+      // Clear cache
+      cache.del('branches');
     } else if (resource === 'categories') {
       updated = await Category.findByIdAndUpdate(id, payload, { new: true });
+      // Clear cache
+      cache.del('categories');
     } else if (resource === 'groups') {
       updated = await Group.findByIdAndUpdate(id, payload, { new: true });
     } else if (resource === 'users') {
@@ -1240,7 +1368,7 @@ async function seedDefaultData() {
         {
           name: 'Sales',
           description: 'Sales staff with access to sales entry and reports',
-          permissions: ['dashboard', 'sales', 'reports'],
+          permissions: ['sales', 'reports'],
           isDefault: true
         },
         {
@@ -1277,6 +1405,26 @@ async function seedDefaultData() {
         }
       } else {
         console.error('❌ Admin group not found');
+      }
+      
+      // Update Sales group to have only sales and reports permissions
+      const salesGroup = await Group.findOne({ name: 'Sales' });
+      if (salesGroup) {
+        console.log('✅ Sales group found with permissions:', salesGroup.permissions);
+        
+        // Update Sales group to only have sales and reports permissions
+        const correctSalesPermissions = ['sales', 'reports'];
+        const needsUpdate = JSON.stringify(salesGroup.permissions.sort()) !== JSON.stringify(correctSalesPermissions.sort());
+        
+        if (needsUpdate) {
+          console.log('⚠️ Sales group permissions need updating, fixing...');
+          salesGroup.permissions = correctSalesPermissions;
+          salesGroup.description = 'Sales staff with access to sales entry and reports';
+          await salesGroup.save();
+          console.log('✅ Sales group updated with correct permissions:', salesGroup.permissions);
+        }
+      } else {
+        console.error('❌ Sales group not found');
       }
       
       // Update Manager group to have only dashboard and reports permissions
@@ -1402,6 +1550,7 @@ mongoose.connection.once('open', () => {
     console.log('💰 Sales: GET /api/sales');
     console.log('⚙️ Settings: GET /api/settings');
     console.log('🔍 Debug: GET /api/debug/user');
+    console.log('🔑 Permissions: GET /api/permissions');
     console.log('🎉 ==========================================');
   });
 });
@@ -1421,4 +1570,3 @@ app.use('*', (req, res) => {
     res.sendFile(path.join(clientDir, 'index.html'));
   }
 });
-

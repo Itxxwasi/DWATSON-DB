@@ -44,8 +44,8 @@ const corsOptions = {
     
     // Add your production domains here
     const allowedOrigins = [
-      'https://yourdomain.com',
-      'https://www.yourdomain.com'
+      'https://www.dwatson.online/',
+      'https://dwatson-db-902c7d197f9e.herokuapp.com/'
     ];
     
     if (allowedOrigins.includes(origin)) {
@@ -1695,4 +1695,5 @@ app.use('*', (req, res) => {
     res.sendFile(path.join(clientDir, 'index.html'));
   }
 });
+
 

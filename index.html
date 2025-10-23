@@ -4157,7 +4157,12 @@
             document.getElementById('grandTotalProfit').textContent = `PKR ${grandTotalProfit.toLocaleString()}`;
             
             // Create branch cards with category breakdown
-            Object.values(branchData).forEach(data => {
+          //  Object.values(branchData).forEach(data => {
+
+           const sortedBranches = Object.values(branchData).sort((a, b) => b.totalSales - a.totalSales);
+
+// Create branch cards with category breakdown
+sortedBranches.forEach(data => { 
                 const card = document.createElement('div');
                 card.className = 'col-md-12 mb-3';
                 

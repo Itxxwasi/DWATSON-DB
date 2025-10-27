@@ -63,11 +63,6 @@ npm start
 http://localhost:5000
 ```
 
-## Default Login
-
-- **Username**: admin
-- **Password**: admin123
-
 ## Deployment
 
 ### Deploy to Heroku

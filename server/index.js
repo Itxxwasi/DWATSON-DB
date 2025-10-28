@@ -253,7 +253,7 @@ const SaleSchema = new mongoose.Schema(
 const SettingsSchema = new mongoose.Schema(
   {
     companyName: { type: String, default: 'D.Watson Group of Pharmacy' },
-    currency: { type: String, default: 'PKR' },
+    currency: { type: String, default: '' },
     dateFormat: { type: String, default: 'DD/MM/YYYY' },
     itemsPerPage: { type: Number, default: 10 },
     defaultCostPercent: { type: Number, default: 70 }
@@ -691,7 +691,7 @@ app.put('/api/settings', authenticate, isAdmin, async (req, res) => {
   try {
     const update = {
       companyName: req.body.companyName ?? 'D.Watson Group of Pharmacy',
-      currency: req.body.currency ?? 'PKR',
+      currency: req.body.currency ?? '',
       dateFormat: req.body.dateFormat ?? 'DD/MM/YYYY',
       itemsPerPage: Number(req.body.itemsPerPage ?? 10),
       defaultCostPercent: req.body.defaultCostPercent !== undefined ? Number(req.body.defaultCostPercent) : undefined

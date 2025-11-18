@@ -17,29 +17,31 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         const productsCount = await Product.countDocuments({ isActive: true });
         const usersCount = await User.countDocuments({ isActive: true });
         
-        // Calculate total orders (excluding cancelled orders)
-        // Count all orders that are not explicitly cancelled (including null/undefined status)
+        // Calculate total orders (excluding cancelled orders only)
+        // Count all orders except those explicitly marked as cancelled
         const allOrdersCount = await Order.countDocuments();
         const ordersCount = await Order.countDocuments({ 
-            $or: [
-                { status: { $ne: 'cancelled' } },
-                { status: { $exists: false } },
-                { status: null }
-            ]
+            status: { $ne: 'cancelled' }
         });
         
         // Calculate total revenue (sum of all non-cancelled order totals)
-        // Make sure total field exists and is a valid number
+        // Include orders with total > 0 (some might have 0 total if not calculated)
         const revenueResult = await Order.aggregate([
             { 
                 $match: { 
-                    $or: [
-                        { status: { $ne: 'cancelled' } },
-                        { status: { $exists: false } },
-                        { status: null }
-                    ],
-                    total: { $exists: true, $type: 'number', $gt: 0 }
+                    status: { $ne: 'cancelled' }
                 } 
+            },
+            {
+                $project: {
+                    total: { 
+                        $cond: [
+                            { $and: [{ $gt: ['$total', 0] }, { $type: '$total', eq: 'number' }] },
+                            '$total',
+                            0
+                        ]
+                    }
+                }
             },
             {
                 $group: {
@@ -47,6 +49,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
                     totalRevenue: { $sum: '$total' }
                 }
             }
+        ]);
         ]);
         
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;

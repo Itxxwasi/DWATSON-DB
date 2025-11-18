@@ -62,8 +62,13 @@ router.get('/admin/all', adminAuth, async (req, res) => {
         const count = await Order.countDocuments(query);
         
         // Count total orders (excluding cancelled)
+        // Include orders with null/undefined status as well
         const totalOrdersCount = await Order.countDocuments({ 
-            status: { $ne: 'cancelled' } 
+            $or: [
+                { status: { $ne: 'cancelled' } },
+                { status: { $exists: false } },
+                { status: null }
+            ]
         });
         
         // Calculate total revenue for all non-cancelled orders (for summary)
@@ -71,7 +76,11 @@ router.get('/admin/all', adminAuth, async (req, res) => {
         const revenueResult = await Order.aggregate([
             { 
                 $match: { 
-                    status: { $ne: 'cancelled' },
+                    $or: [
+                        { status: { $ne: 'cancelled' } },
+                        { status: { $exists: false } },
+                        { status: null }
+                    ],
                     total: { $exists: true, $type: 'number', $gt: 0 }
                 } 
             },

@@ -76,8 +76,29 @@
     });
 
     // Sidebar toggle for mobile/tablet
-    $('#sidebarToggle').on('click', function() {
+    $('#sidebarToggle').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         $('.sidebar').toggleClass('active');
+        $('#sidebarOverlay').toggleClass('active');
+    });
+    
+    // Close sidebar when overlay is clicked
+    $('#sidebarOverlay').on('click', function() {
+        $('.sidebar').removeClass('active');
+        $(this).removeClass('active');
+    });
+    
+    // Close sidebar when clicking outside on mobile
+    $(document).on('click', function(e) {
+        if ($(window).width() <= 991) {
+            if (!$(e.target).closest('.sidebar').length && 
+                !$(e.target).closest('#sidebarToggle').length && 
+                $('.sidebar').hasClass('active')) {
+                $('.sidebar').removeClass('active');
+                $('#sidebarOverlay').removeClass('active');
+            }
+        }
     });
     
     // Logout

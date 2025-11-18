@@ -182,10 +182,13 @@ function initialiseMobileMenu() {
             document.body.classList.remove('mobile-menu-open');
         };
 
-        // Toggle menu when hamburger button is clicked
-        toggle.addEventListener('click', (e) => {
+        // Remove any existing event listeners by using namespaced events
+        // Use event delegation on document to prevent duplicate handlers
+        $(document).off('click.mobileMenuToggle').on('click.mobileMenuToggle', '.js-mobile-menu', function(e) {
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
+            
             if (panel.classList.contains('active')) {
                 closeMenu();
             } else {
@@ -194,41 +197,40 @@ function initialiseMobileMenu() {
         });
         
         if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
+            $(closeBtn).off('click.mobileMenuClose').on('click.mobileMenuClose', function(e) {
                 e.preventDefault();
+                e.stopPropagation();
                 closeMenu();
             });
         }
 
         // Close when clicking outside panel (on the overlay)
-        panel.addEventListener('click', (e) => {
-            if (e.target === panel) {
+        $(panel).off('click.mobileMenuOverlay').on('click.mobileMenuOverlay', function(e) {
+            if (e.target === this) {
+                e.preventDefault();
+                e.stopPropagation();
                 closeMenu();
             }
         });
 
         // Close menu when a link is clicked (but not dropdown toggles)
-        panel.addEventListener('click', (e) => {
-            const link = e.target.closest('a');
-            if (link && link.getAttribute('href') && !link.classList.contains('dropdown-toggle')) {
-                // Only close if it's not a dropdown toggle and has a real href
-                const href = link.getAttribute('href');
-                if (href && href !== '#' && !link.closest('.has-children .dropdown-toggle')) {
-                    closeMenu();
-                }
+        $(panel).off('click.mobileMenuLink').on('click.mobileMenuLink', 'a', function(e) {
+            const link = $(this);
+            const href = link.attr('href');
+            
+            // Only close if it's not a dropdown toggle and has a real href
+            if (href && href !== '#' && !link.hasClass('dropdown-toggle') && !link.closest('.has-children .dropdown-toggle').length) {
+                closeMenu();
             }
         });
         
         // Handle dropdown expansion in mobile menu
-        panel.addEventListener('click', (e) => {
-            const dropdownLink = e.target.closest('.mobile-menu-list .has-children > .cms-item-title');
-            if (dropdownLink && dropdownLink.closest('.has-children')) {
-                const menuItem = dropdownLink.closest('.menu-item');
-                if (menuItem && menuItem.classList.contains('has-children')) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    menuItem.classList.toggle('expanded');
-                }
+        $(panel).off('click.mobileMenuDropdown').on('click.mobileMenuDropdown', '.mobile-menu-list .has-children > .cms-item-title', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const menuItem = $(this).closest('.menu-item.has-children');
+            if (menuItem.length) {
+                menuItem.toggleClass('expanded');
             }
         });
     } catch (err) {
@@ -1319,23 +1321,7 @@ function initialiseGlobalDelegates() {
             return false;
         }
 
-        // Handle mobile menu toggle - use the existing panel
-        const mobileMenuTrigger = event.target.closest('.js-mobile-menu');
-        if (mobileMenuTrigger) {
-            event.preventDefault();
-            event.stopPropagation();
-            const panel = document.getElementById('mobileMenuPanel');
-            if (panel) {
-                // Load menu items if not already loaded
-                if (!panel.dataset.loaded) {
-                    loadMobileMenu();
-                    panel.dataset.loaded = 'true';
-                }
-                panel.classList.toggle('active');
-                document.body.classList.toggle('mobile-menu-open');
-            }
-            return false;
-        }
+        // Mobile menu toggle is handled by initialiseMobileMenu() - skip here to avoid conflicts
         
         // Handle mobile menu dropdown toggles
         const mobileDropdownToggle = event.target.closest('.mobile-menu-list .dropdown-toggle');

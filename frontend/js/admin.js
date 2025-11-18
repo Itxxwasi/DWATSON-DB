@@ -69,6 +69,7 @@
         // On small screens, close the sidebar after selecting a menu item
         if (window.innerWidth <= 991) {
             $('.sidebar').removeClass('active');
+            $('#sidebarOverlay').removeClass('active');
         }
         
         // Load data for the section

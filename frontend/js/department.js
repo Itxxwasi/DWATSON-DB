@@ -107,7 +107,7 @@ function renderProducts(products) {
                     <div class="card-body d-flex flex-column">
                         <small class="text-muted">${categoryName}</small>
                         <h6 class="card-title mt-2">${product.name}</h6>
-                        <p class="card-text text-muted small flex-grow-1">${product.description?.substring(0, 100)}${product.description?.length > 100 ? '...' : ''}</p>
+                        <p class="card-text text-muted small flex-grow-1">${product.description ? (product.description.substring(0, 100) + (product.description.length > 100 ? '...' : '')) : ''}</p>
                         <div class="mt-auto">
                             <div class="mb-2">
                                 <strong class="text-primary">Rs. ${finalPrice.toFixed(2)}</strong>

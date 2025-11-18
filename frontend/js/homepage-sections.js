@@ -1717,6 +1717,11 @@ function renderProductCard(product) {
                         <span class="product-card__price--current">Rs. ${finalPrice.toFixed(2)}</span>
                     </div>
                 </a>
+                <div class="product-card__actions">
+                    <button type="button" class="btn btn-primary btn-sm add-to-cart" data-id="${productId}" data-product-id="${productId}">
+                        <i class="fas fa-shopping-cart"></i> Add to Cart
+                    </button>
+                </div>
             </div>
         </div>
     `;

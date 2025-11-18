@@ -1052,6 +1052,18 @@ a:hover {
     color: var(--color-label-sale);
 }
 
+.product-card__actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+}
+
+.product-card__actions .btn {
+    width: 100%;
+    font-size: 14px;
+    padding: 8px 16px;
+}
+
 .product-card__body {
     padding: 16px;
     display: flex;
@@ -1116,10 +1128,20 @@ a:hover {
     display: inline-block;
 }
 
-/* Hide Add to Cart button - reference image doesn't show it */
+/* Show Add to Cart button - ensure it's visible on all product cards */
+.product-card .add-to-cart,
+.product-card .btn.add-to-cart,
+.product-card__actions .add-to-cart,
+.card .add-to-cart {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure buttons in product cards are visible */
 .product-card .btn,
-.product-card__body .add-to-cart-btn {
-    display: none;
+.card .btn {
+    display: inline-block !important;
 }
 
 /* ============ Product Carousel Styles ============ */

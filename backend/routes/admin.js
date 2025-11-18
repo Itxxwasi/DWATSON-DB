@@ -25,7 +25,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         });
         
         // Calculate total revenue (sum of all non-cancelled order totals)
-        // Include orders with total > 0 (some might have 0 total if not calculated)
+        // Use $ifNull to handle missing total fields and convert to number
         const revenueResult = await Order.aggregate([
             { 
                 $match: { 
@@ -33,20 +33,13 @@ router.get('/dashboard', adminAuth, async (req, res) => {
                 } 
             },
             {
-                $project: {
-                    total: { 
-                        $cond: [
-                            { $and: [{ $gt: ['$total', 0] }, { $type: '$total', eq: 'number' }] },
-                            '$total',
-                            0
-                        ]
-                    }
-                }
-            },
-            {
                 $group: {
                     _id: null,
-                    totalRevenue: { $sum: '$total' }
+                    totalRevenue: { 
+                        $sum: { 
+                            $ifNull: ['$total', 0]
+                        }
+                    }
                 }
             }
         ]);

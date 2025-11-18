@@ -67,7 +67,7 @@ router.get('/admin/all', adminAuth, async (req, res) => {
         });
         
         // Calculate total revenue for all non-cancelled orders (for summary)
-        // Handle cases where total might be 0 or missing
+        // Use $ifNull to handle missing total fields
         const revenueResult = await Order.aggregate([
             { 
                 $match: { 
@@ -75,20 +75,13 @@ router.get('/admin/all', adminAuth, async (req, res) => {
                 } 
             },
             {
-                $project: {
-                    total: { 
-                        $cond: [
-                            { $and: [{ $gt: ['$total', 0] }, { $type: '$total', eq: 'number' }] },
-                            '$total',
-                            0
-                        ]
-                    }
-                }
-            },
-            {
                 $group: {
                     _id: null,
-                    totalRevenue: { $sum: '$total' }
+                    totalRevenue: { 
+                        $sum: { 
+                            $ifNull: ['$total', 0]
+                        }
+                    }
                 }
             }
         ]);

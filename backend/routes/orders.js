@@ -91,7 +91,6 @@ router.get('/admin/all', adminAuth, async (req, res) => {
                     totalRevenue: { $sum: '$total' }
                 }
             }
-            }
         ]);
         
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;

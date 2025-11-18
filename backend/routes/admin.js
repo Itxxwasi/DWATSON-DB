@@ -50,7 +50,6 @@ router.get('/dashboard', adminAuth, async (req, res) => {
                 }
             }
         ]);
-        ]);
         
         const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
         

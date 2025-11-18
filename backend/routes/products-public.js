@@ -118,7 +118,7 @@ router.get('/', async (req, res) => {
 
         // Use lean() for faster queries and select only needed fields
         const products = await Product.find(query)
-            .select('name price discount image imageUpload category department stock isFeatured isTrending isNewArrival isBestSelling isTopSelling sections collectionName createdAt')
+            .select('name description price discount image imageUpload category department stock isFeatured isTrending isNewArrival isBestSelling isTopSelling sections collectionName createdAt')
             .populate('category', 'name _id')
             .populate('department', 'name _id')
             .populate('imageUpload', 'url')

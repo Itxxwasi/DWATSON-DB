@@ -61,11 +61,35 @@ router.get('/admin/all', adminAuth, async (req, res) => {
         
         const count = await Order.countDocuments(query);
         
+        // Calculate total revenue for all non-cancelled orders (for summary)
+        const revenueResult = await Order.aggregate([
+            { 
+                $match: { 
+                    status: { $ne: 'cancelled' } 
+                } 
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: '$total' }
+                }
+            }
+        ]);
+        
+        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
+        
+        // Count total orders (excluding cancelled)
+        const totalOrdersCount = await Order.countDocuments({ 
+            status: { $ne: 'cancelled' } 
+        });
+        
         res.json({
             orders: formattedOrders,
             totalPages: Math.ceil(count / limit),
             currentPage: parseInt(page),
-            total: count
+            total: count,
+            totalOrders: totalOrdersCount,
+            totalRevenue: totalRevenue
         });
     } catch (err) {
         res.status(500).json({ message: err.message });

@@ -1254,6 +1254,15 @@ function loadOrders(page) {
     
     $.get(url)
         .done(function(data) {
+            // Update summary cards
+            if (data.totalOrders !== undefined) {
+                $('#orders-tab-total-orders').text(data.totalOrders || 0);
+            }
+            if (data.totalRevenue !== undefined) {
+                const revenue = data.totalRevenue || 0;
+                $('#orders-tab-total-revenue').text('Rs. ' + revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            }
+            
             let html = '';
             
             if (!data.orders || data.orders.length === 0) {

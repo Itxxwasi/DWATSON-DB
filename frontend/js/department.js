@@ -179,12 +179,31 @@ function addToGuestCart(productId, quantity = 1, price = 0, discount = 0) {
 }
 
 function handleAddToCart(productId) {
+    // Validate productId
+    if (!productId) {
+        console.error('handleAddToCart: No productId provided');
+        alert('Product ID is missing. Cannot add to cart.');
+        return;
+    }
+    
+    // Ensure productId is a string
+    productId = String(productId).trim();
+    
+    if (!productId || productId === 'undefined' || productId === 'null' || productId === '') {
+        console.error('handleAddToCart: Invalid productId:', productId);
+        alert('Invalid product ID. Cannot add to cart.');
+        return;
+    }
+    
+    console.log('handleAddToCart called with productId:', productId);
+    
     const token = localStorage.getItem('token');
     
     // If not logged in, add to guest cart
     if (!token) {
-        // Fetch product details to get price
-        $.get(`/api/products/${productId}`)
+        console.log('handleAddToCart: No token found, adding to guest cart');
+        // Fetch product details to get price - use public API endpoint
+        $.get(`/api/public/products/${productId}`)
             .done(function(product) {
                 if (product) {
                     const cartCount = addToGuestCart(
@@ -199,7 +218,8 @@ function handleAddToCart(productId) {
                     alert('Product not found.');
                 }
             })
-            .fail(function() {
+            .fail(function(error) {
+                console.error('Error fetching product for guest cart:', error);
                 // Add to guest cart with default values if API call fails
                 const cartCount = addToGuestCart(productId, 1, 0, 0);
                 $('.cart-count').text(cartCount);
@@ -207,6 +227,8 @@ function handleAddToCart(productId) {
             });
         return;
     }
+
+    console.log('handleAddToCart: Making API call with productId:', productId);
 
     $.ajaxSetup({
         headers: {
@@ -218,15 +240,41 @@ function handleAddToCart(productId) {
         url: '/api/cart/add',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ productId, quantity: 1 })
+        data: JSON.stringify({ 
+            productId: productId, 
+            quantity: 1 
+        })
     })
     .done(function(data) {
+        console.log('handleAddToCart: Success response:', data);
         alert('Product added to cart!');
         loadCartCount();
     })
     .fail(function(error) {
         console.error('Error adding to cart:', error);
-        alert('Error adding product to cart. Please try again.');
+        console.error('Error status:', error.status);
+        console.error('Error responseText:', error.responseText);
+        
+        let errorMessage = 'Error adding product to cart. Please try again.';
+        
+        if (error.status === 400) {
+            try {
+                const errorData = JSON.parse(error.responseText);
+                errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+                errorMessage = 'Invalid request. Please check the product details.';
+            }
+        } else if (error.status === 401) {
+            errorMessage = 'Please log in to add products to cart.';
+            localStorage.removeItem('token');
+            setTimeout(() => {
+                window.location.href = '/login.html';
+            }, 1500);
+        } else if (error.status === 404) {
+            errorMessage = 'Product not found.';
+        }
+        
+        alert(errorMessage);
     });
 }
 

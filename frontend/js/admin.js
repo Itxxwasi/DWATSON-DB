@@ -76,29 +76,49 @@
         loadSectionData(sectionId);
     });
 
-    // Sidebar toggle for mobile/tablet
-    $('#sidebarToggle').on('click', function(e) {
+    // Sidebar toggle for mobile/tablet - use event delegation to prevent multiple handlers
+    $(document).off('click', '#sidebarToggle').on('click', '#sidebarToggle', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        $('.sidebar').toggleClass('active');
-        $('#sidebarOverlay').toggleClass('active');
+        e.stopImmediatePropagation();
+        
+        const sidebar = $('.sidebar');
+        const overlay = $('#sidebarOverlay');
+        
+        if (sidebar.hasClass('active')) {
+            sidebar.removeClass('active');
+            overlay.removeClass('active');
+        } else {
+            sidebar.addClass('active');
+            overlay.addClass('active');
+        }
     });
     
-    // Close sidebar when overlay is clicked
-    $('#sidebarOverlay').on('click', function() {
+    // Close sidebar when overlay is clicked - use event delegation
+    $(document).off('click', '#sidebarOverlay').on('click', '#sidebarOverlay', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         $('.sidebar').removeClass('active');
         $(this).removeClass('active');
     });
     
-    // Close sidebar when clicking outside on mobile
-    $(document).on('click', function(e) {
-        if ($(window).width() <= 991) {
-            if (!$(e.target).closest('.sidebar').length && 
-                !$(e.target).closest('#sidebarToggle').length && 
-                $('.sidebar').hasClass('active')) {
-                $('.sidebar').removeClass('active');
-                $('#sidebarOverlay').removeClass('active');
-            }
+    // Close sidebar when clicking outside on mobile - improved logic
+    $(document).off('click.sidebarClose').on('click.sidebarClose', function(e) {
+        // Only handle on mobile/tablet
+        if ($(window).width() > 991) {
+            return;
+        }
+        
+        // Don't close if clicking on toggle button or sidebar itself
+        if ($(e.target).closest('#sidebarToggle').length || 
+            $(e.target).closest('.sidebar').length) {
+            return;
+        }
+        
+        // Only close if sidebar is currently open
+        if ($('.sidebar').hasClass('active')) {
+            $('.sidebar').removeClass('active');
+            $('#sidebarOverlay').removeClass('active');
         }
     });
     

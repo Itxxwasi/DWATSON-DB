@@ -38,6 +38,18 @@ body {
 
 .sidebar-header .logo {
     max-height: 50px;
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+}
+
+.sidebar-header .logo-text {
+    color: #fff;
+    margin: 0;
+    font-size: 20px;
+    font-weight: bold;
+    text-align: center;
+    padding: 10px 0;
 }
 
 .sidebar-menu {

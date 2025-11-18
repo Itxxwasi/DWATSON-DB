@@ -7,6 +7,7 @@ const Product = require('../models/Product');
 const Slider = require('../models/Slider');
 const Banner = require('../models/Banner');
 const User = require('../models/User');
+const Order = require('../models/Order');
 
 // Dashboard statistics
 router.get('/dashboard', adminAuth, async (req, res) => {
@@ -15,12 +16,36 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         const categoriesCount = await Category.countDocuments({ isActive: true });
         const productsCount = await Product.countDocuments({ isActive: true });
         const usersCount = await User.countDocuments({ isActive: true });
+        
+        // Calculate total orders (excluding cancelled orders)
+        const ordersCount = await Order.countDocuments({ 
+            status: { $ne: 'cancelled' } 
+        });
+        
+        // Calculate total revenue (sum of all non-cancelled order totals)
+        const revenueResult = await Order.aggregate([
+            { 
+                $match: { 
+                    status: { $ne: 'cancelled' } 
+                } 
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: '$total' }
+                }
+            }
+        ]);
+        
+        const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
 
         res.json({
             departments: departmentsCount,
             categories: categoriesCount,
             products: productsCount,
-            users: usersCount
+            users: usersCount,
+            orders: ordersCount,
+            revenue: totalRevenue
         });
     } catch (err) {
         res.status(500).json({ message: err.message });

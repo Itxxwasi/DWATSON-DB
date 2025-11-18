@@ -567,6 +567,10 @@ function loadDashboardData() {
             $('#categories-count').text(data.categories);
             $('#products-count').text(data.products);
             $('#users-count').text(data.users);
+            $('#orders-count').text(data.orders || 0);
+            // Format revenue with commas and 2 decimal places
+            const revenue = data.revenue || 0;
+            $('#revenue-count').text('Rs. ' + revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
         })
         .fail(function(xhr) {
             const message = xhr.responseJSON?.message || 'Error loading dashboard data';

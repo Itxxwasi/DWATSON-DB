@@ -15,7 +15,7 @@
 }
 
 body {
-    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Google Sans Code', sans-serif;
     color: var(--dark-color);
     line-height: 1.6;
     background-color: var(--secondary-color);

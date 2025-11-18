@@ -60,14 +60,29 @@ router.post('/add', auth, async (req, res) => {
     try {
         const { productId, quantity = 1 } = req.body;
         
+        // Validate productId
         if (!productId) {
+            console.error('Add to cart: Missing productId in request body:', req.body);
             return res.status(400).json({ message: 'Product ID is required' });
         }
         
+        // Ensure productId is a valid string
+        const productIdStr = String(productId).trim();
+        if (!productIdStr || productIdStr === 'undefined' || productIdStr === 'null' || productIdStr === '') {
+            console.error('Add to cart: Invalid productId format:', productId);
+            return res.status(400).json({ message: 'Invalid product ID format' });
+        }
+        
         // Check if product exists and is active
-        const product = await Product.findById(productId);
-        if (!product || !product.isActive) {
-            return res.status(404).json({ message: 'Product not found or inactive' });
+        const product = await Product.findById(productIdStr);
+        if (!product) {
+            console.error('Add to cart: Product not found:', productIdStr);
+            return res.status(404).json({ message: 'Product not found' });
+        }
+        
+        if (!product.isActive) {
+            console.error('Add to cart: Product is inactive:', productIdStr);
+            return res.status(400).json({ message: 'Product is currently unavailable' });
         }
         
         // Find or create cart
@@ -78,10 +93,14 @@ router.post('/add', auth, async (req, res) => {
         
         // Check if product already exists in cart
         const existingItemIndex = cart.items.findIndex(
-            item => item.product.toString() === productId
+            item => item.product.toString() === productIdStr
         );
         
-        const requestedQuantity = parseInt(quantity, 10);
+        const requestedQuantity = parseInt(quantity, 10) || 1;
+        if (isNaN(requestedQuantity) || requestedQuantity < 1) {
+            return res.status(400).json({ message: 'Invalid quantity. Must be at least 1' });
+        }
+        
         const currentQuantity = existingItemIndex >= 0 ? cart.items[existingItemIndex].quantity : 0;
         const newQuantity = currentQuantity + requestedQuantity;
         
@@ -100,7 +119,7 @@ router.post('/add', auth, async (req, res) => {
         } else {
             // Add new item
             cart.items.push({
-                product: productId,
+                product: productIdStr,
                 quantity: requestedQuantity,
                 price: product.price,
                 discount: product.discount || 0

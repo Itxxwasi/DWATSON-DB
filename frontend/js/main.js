@@ -1620,6 +1620,15 @@ async function handleAddToCart(productId) {
         return;
     }
 
+    // Ensure productId is a string
+    productId = String(productId).trim();
+    
+    if (!productId || productId === 'undefined' || productId === 'null') {
+        console.error('handleAddToCart: Invalid productId:', productId);
+        alert('Invalid product ID. Cannot add to cart.');
+        return;
+    }
+
     const token = localStorage.getItem('token');
     
     // If not logged in, add to guest cart
@@ -1628,7 +1637,7 @@ async function handleAddToCart(productId) {
         
         // Fetch product details to get price
         try {
-            const productResponse = await fetchJSON(`/api/products/${productId}`);
+            const productResponse = await fetchJSON(`/api/public/products/${productId}`);
             if (productResponse) {
                 const cartCount = addToGuestCart(
                     productId,
@@ -1656,7 +1665,10 @@ async function handleAddToCart(productId) {
     try {
         const response = await fetchJSON('/api/cart/add', {
             method: 'POST',
-            body: { productId, quantity: 1 }
+            body: { 
+                productId: productId, 
+                quantity: 1 
+            }
         });
 
         console.log('handleAddToCart: API response:', response);

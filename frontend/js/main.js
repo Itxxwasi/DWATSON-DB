@@ -1360,16 +1360,48 @@ function initialiseGlobalDelegates() {
         if (addButton) {
             event.preventDefault();
             event.stopPropagation();
-            const productId = addButton.dataset.id || addButton.dataset.productId;
+            event.stopImmediatePropagation();
+            
+            // Try multiple ways to get productId
+            let productId = addButton.getAttribute('data-id') || 
+                           addButton.getAttribute('data-product-id') ||
+                           addButton.dataset?.id || 
+                           addButton.dataset?.productId;
+            
+            // If using jQuery, try that too
+            if (!productId && typeof $ !== 'undefined') {
+                const $btn = $(addButton);
+                productId = $btn.attr('data-id') || $btn.attr('data-product-id') || $btn.data('id') || $btn.data('product-id');
+            }
+            
             console.log('Add to cart clicked, productId:', productId, 'Button:', addButton);
+            console.log('Button attributes:', {
+                'data-id': addButton.getAttribute('data-id'),
+                'data-product-id': addButton.getAttribute('data-product-id'),
+                dataset: addButton.dataset,
+                innerHTML: addButton.innerHTML.substring(0, 100)
+            });
+            
             if (productId) {
-                await handleAddToCart(productId);
+                // Ensure productId is a string
+                productId = String(productId).trim();
+                if (productId && productId !== 'undefined' && productId !== 'null') {
+                    try {
+                        await handleAddToCart(productId);
+                    } catch (error) {
+                        console.error('Error in handleAddToCart:', error);
+                        alert('Failed to add product to cart. Please try again.');
+                    }
+                } else {
+                    console.error('Invalid productId after conversion:', productId);
+                    alert('Invalid product ID. Cannot add to cart.');
+                }
             } else {
                 console.error('Add to cart button missing product ID. Button attributes:', {
                     id: addButton.id,
                     class: addButton.className,
                     dataset: addButton.dataset,
-                    innerHTML: addButton.innerHTML
+                    innerHTML: addButton.innerHTML.substring(0, 100)
                 });
                 alert('Unable to add product to cart. Product ID is missing.');
             }

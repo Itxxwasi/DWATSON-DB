@@ -109,10 +109,17 @@ function renderProducts(products) {
         `;
     }).join(''));
 
-    // Attach event handlers
-    $('.add-to-cart').click(function() {
-        const productId = $(this).data('id');
-        handleAddToCart(productId);
+    // Attach event handlers - use attr instead of data to get actual string value
+    $('.add-to-cart').off('click.cart').on('click.cart', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const productId = $(this).attr('data-id') || $(this).attr('data-product-id') || $(this).data('id') || $(this).data('product-id');
+        if (productId) {
+            handleAddToCart(String(productId).trim());
+        } else {
+            console.error('Product ID not found on button:', this);
+            alert('Unable to add product to cart. Product ID is missing.');
+        }
     });
 }
 
